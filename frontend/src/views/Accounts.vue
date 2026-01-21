@@ -910,6 +910,14 @@ const writeCachedTask = (key: string, value: unknown) => {
   }
 }
 
+const removeCachedTask = (key: string) => {
+  try {
+    localStorage.removeItem(key)
+  } catch {
+    // ignore storage errors
+  }
+}
+
 const readClearOffset = (key: string) => {
   const raw = localStorage.getItem(key)
   const value = Number(raw)
@@ -925,7 +933,23 @@ const writeClearOffset = (key: string, value: number) => {
 }
 
 const syncRegisterTask = (task: RegisterTask | null, persist = true) => {
-  if (!task) return
+  if (!task) {
+    registerTask.value = null
+    lastRegisterTaskId.value = null
+    registerLogClearOffset.value = 0
+    if (persist) {
+      removeCachedTask(REGISTER_TASK_CACHE_KEY)
+      writeClearOffset(REGISTER_CLEAR_KEY, 0)
+    }
+    return
+  }
+
+  // 已中断的任务不应长期占用“任务状态”窗口：直接清理缓存与状态
+  if (task.status === 'cancelled') {
+    syncRegisterTask(null, persist)
+    return
+  }
+
   registerTask.value = task
   if (task.id && task.id !== lastRegisterTaskId.value) {
     lastRegisterTaskId.value = task.id
@@ -938,7 +962,23 @@ const syncRegisterTask = (task: RegisterTask | null, persist = true) => {
 }
 
 const syncLoginTask = (task: LoginTask | null, persist = true) => {
-  if (!task) return
+  if (!task) {
+    loginTask.value = null
+    lastLoginTaskId.value = null
+    loginLogClearOffset.value = 0
+    if (persist) {
+      removeCachedTask(LOGIN_TASK_CACHE_KEY)
+      writeClearOffset(LOGIN_CLEAR_KEY, 0)
+    }
+    return
+  }
+
+  // 已中断的任务不应长期占用“任务状态”窗口：直接清理缓存与状态
+  if (task.status === 'cancelled') {
+    syncLoginTask(null, persist)
+    return
+  }
+
   loginTask.value = task
   if (task.id && task.id !== lastLoginTaskId.value) {
     lastLoginTaskId.value = task.id
@@ -955,13 +995,30 @@ const hydrateTaskCache = () => {
   loginLogClearOffset.value = readClearOffset(LOGIN_CLEAR_KEY)
   const cachedRegister = readCachedTask<RegisterTask>(REGISTER_TASK_CACHE_KEY)
   if (cachedRegister) {
-    registerTask.value = cachedRegister
-    lastRegisterTaskId.value = cachedRegister.id || null
+    if (cachedRegister.status !== 'cancelled') {
+      registerTask.value = cachedRegister
+      lastRegisterTaskId.value = cachedRegister.id || null
+    } else {
+      syncRegisterTask(null, true)
+    }
   }
   const cachedLogin = readCachedTask<LoginTask>(LOGIN_TASK_CACHE_KEY)
   if (cachedLogin) {
-    loginTask.value = cachedLogin
-    lastLoginTaskId.value = cachedLogin.id || null
+    if (cachedLogin.status !== 'cancelled') {
+      loginTask.value = cachedLogin
+      lastLoginTaskId.value = cachedLogin.id || null
+    } else {
+      syncLoginTask(null, true)
+    }
+  }
+}
+
+const cleanupCancelledTasks = () => {
+  if (registerTask.value?.status === 'cancelled') {
+    syncRegisterTask(null, true)
+  }
+  if (loginTask.value?.status === 'cancelled') {
+    syncLoginTask(null, true)
   }
 }
 
@@ -1132,10 +1189,11 @@ const refreshTaskSnapshot = async () => {
 
     if (!tasks.length) {
       await loadCurrentTasks()
-      return
+    } else {
+      await Promise.all(tasks)
     }
 
-    await Promise.all(tasks)
+    cleanupCancelledTasks()
   } catch (error: any) {
     automationError.value = error?.message || '任务状态更新失败'
   }
@@ -1148,6 +1206,8 @@ const openTaskModal = async () => {
 
 const closeTaskModal = () => {
   isTaskOpen.value = false
+  // 关闭弹窗时，确保已中断任务不会被缓存“复活”
+  cleanupCancelledTasks()
 }
 
 const clearTaskLogs = () => {
@@ -1696,6 +1756,12 @@ const updateRegisterTask = async (taskId: string) => {
     clearRegisterTimer()
     await refreshAccounts()
 
+    if (task.status === 'cancelled') {
+      // 已中断：不再在任务窗口中展示该任务
+      syncRegisterTask(null, true)
+      return
+    }
+
     // 显示任务完成通知
     const successCount = task.success_count || 0
     const failCount = task.fail_count || 0
@@ -1718,6 +1784,12 @@ const updateLoginTask = async (taskId: string) => {
     isRefreshing.value = false
     clearLoginTimer()
     await refreshAccounts()
+
+    if (task.status === 'cancelled') {
+      // 已中断：不再在任务窗口中展示该任务
+      syncLoginTask(null, true)
+      return
+    }
 
     // 显示任务完成通知
     const successCount = task.success_count || 0
@@ -1778,11 +1850,15 @@ const loadCurrentTasks = async () => {
   try {
     const registerCurrent = await accountsApi.getRegisterCurrent()
     if (registerCurrent && 'id' in registerCurrent) {
+      // 仅展示进行中/等待中；已中断的任务立即清理
       syncRegisterTask(registerCurrent)
       if (registerCurrent.status === 'running' || registerCurrent.status === 'pending') {
         isRegistering.value = true
         startRegisterPolling(registerCurrent.id)
       }
+    } else {
+      // 后端 idle 时，清理已中断的缓存
+      cleanupCancelledTasks()
     }
   } catch (error: any) {
     automationError.value = error.message || '加载注册任务失败'
@@ -1791,11 +1867,15 @@ const loadCurrentTasks = async () => {
   try {
     const loginCurrent = await accountsApi.getLoginCurrent()
     if (loginCurrent && 'id' in loginCurrent) {
+      // 仅展示进行中/等待中；已中断的任务立即清理
       syncLoginTask(loginCurrent)
       if (loginCurrent.status === 'running' || loginCurrent.status === 'pending') {
         isRefreshing.value = true
         startLoginPolling(loginCurrent.id)
       }
+    } else {
+      // 后端 idle 时，清理已中断的缓存
+      cleanupCancelledTasks()
     }
   } catch (error: any) {
     automationError.value = error.message || '加载刷新任务失败'
