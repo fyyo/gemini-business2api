@@ -16,7 +16,7 @@ from core.base_task_service import TaskCancelledError
 
 
 # 常量
-AUTH_HOME_URL = "https://auth.business.gemini.google/"
+AUTH_HOME_URL = "https://auth.business.gemini.google/login"
 
 # Linux 下常见的 Chromium 路径
 CHROMIUM_PATHS = [
@@ -307,7 +307,7 @@ class GeminiAutomation:
                 self._log("info", "🔑 从 meta 标签提取到 XSRF token")
                 return m.group(1)
             # 尝试从隐藏 input 提取
-            m = re.search(r'name=["\']xsrfToken["\']\s+value=["\']([^"\']+-)["\']', html)
+            m = re.search(r'name=["\']xsrfToken["\'][^>]*value=["\']([A-Za-z0-9_-]{20,})["\']', html)
             if m:
                 self._log("info", "🔑 从 input 提取到 XSRF token")
                 return m.group(1)
@@ -324,7 +324,7 @@ class GeminiAutomation:
         except Exception as e:
             self._log("warning", f"⚠️ XSRF token 提取异常: {e}")
         self._log("warning", "⚠️ 未能从页面提取 XSRF token，使用备用值")
-        return "KdLRzKwwBTD5wo8nUollAbY6cW0"
+        return "GXO_B0wnNhs6UQJZMcrSbTsbEEs"
 
     def _run_flow(self, page, email: str, mail_client, is_new_account: bool = False) -> dict:
         """执行登录流程（is_new_account=True 时启用注册专用的增强用户名处理）"""

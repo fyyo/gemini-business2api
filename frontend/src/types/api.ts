@@ -55,6 +55,11 @@ export interface AccountConfigItem {
   mail_client_id?: string
   mail_refresh_token?: string
   mail_tenant?: string
+  mail_base_url?: string
+  mail_api_key?: string
+  mail_jwt_token?: string
+  mail_verify_ssl?: boolean
+  mail_domain?: string
 }
 
 export interface AccountsConfigResponse {
@@ -72,7 +77,7 @@ export interface Stats {
   requests_per_hour: number
 }
 
-export type TempMailProvider = 'duckmail' | 'moemail' | 'freemail' | 'gptmail'
+export type TempMailProvider = 'duckmail' | 'moemail' | 'freemail' | 'gptmail' | 'cfmail'
 
 export interface Settings {
   basic: {
@@ -96,6 +101,10 @@ export interface Settings {
     gptmail_api_key?: string
     gptmail_verify_ssl?: boolean
     gptmail_domain?: string
+    cfmail_base_url?: string
+    cfmail_api_key?: string
+    cfmail_verify_ssl?: boolean
+    cfmail_domain?: string
     browser_engine?: string
     browser_headless?: boolean
     refresh_window_hours?: number

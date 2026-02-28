@@ -222,8 +222,8 @@ class LoginService(BaseTaskService[LoginTask]):
                 log_callback=log_cb,
             )
             client.set_credentials(mail_address)
-        elif mail_provider in ("duckmail", "moemail", "freemail", "gptmail"):
-            if mail_provider not in ("freemail", "gptmail") and not mail_password:
+        elif mail_provider in ("duckmail", "moemail", "freemail", "gptmail", "cfmail"):
+            if mail_provider not in ("freemail", "gptmail", "cfmail") and not mail_password:
                 error_message = "邮箱密码缺失" if mail_provider == "duckmail" else "mail password (email_id) missing"
                 return {"success": False, "email": account_id, "error": error_message}
             if mail_provider == "freemail" and not account.get("mail_jwt_token") and not config.basic.freemail_jwt_token:
@@ -292,6 +292,8 @@ class LoginService(BaseTaskService[LoginTask]):
         config_data["mail_provider"] = mail_provider
         if mail_provider in ("freemail", "gptmail"):
             config_data["mail_password"] = ""
+        elif mail_provider == "cfmail":
+            config_data["mail_password"] = mail_password  # 保留 JWT token
         else:
             config_data["mail_password"] = mail_password
         if mail_provider == "microsoft":
@@ -353,6 +355,10 @@ class LoginService(BaseTaskService[LoginTask]):
             elif mail_provider == "gptmail":
                 # GPTMail 不需要密码，允许直接刷新
                 pass
+            elif mail_provider == "cfmail":
+                # cfmail 需要 JWT token（存在 mail_password 中）或全局配置
+                if not mail_password and not config.basic.cfmail_api_key:
+                    continue
             else:
                 continue
             expires_at = account.get("expires_at")

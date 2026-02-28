@@ -247,6 +247,12 @@ class RegisterService(BaseTaskService[RegisterTask]):
             config_data["mail_api_key"] = config.basic.gptmail_api_key
             config_data["mail_verify_ssl"] = config.basic.gptmail_verify_ssl
             config_data["mail_domain"] = config.basic.gptmail_domain
+        elif temp_mail_provider == "cfmail":
+            config_data["mail_password"] = getattr(client, "jwt_token", "") or getattr(client, "password", "")
+            config_data["mail_base_url"] = config.basic.cfmail_base_url
+            config_data["mail_api_key"] = config.basic.cfmail_api_key
+            config_data["mail_verify_ssl"] = config.basic.cfmail_verify_ssl
+            config_data["mail_domain"] = config.basic.cfmail_domain
         elif temp_mail_provider == "moemail":
             config_data["mail_password"] = getattr(client, "email_id", "") or getattr(client, "password", "")
             config_data["mail_base_url"] = config.basic.moemail_base_url
