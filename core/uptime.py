@@ -9,6 +9,8 @@ import json
 import os
 from threading import Lock
 
+from core.model_aliases import normalize_model_name
+
 # 北京时区 UTC+8
 BEIJING_TZ = timezone(timedelta(hours=8))
 
@@ -93,6 +95,7 @@ def record_request(
     status_code: Optional[int] = None
 ):
     """记录一次心跳。"""
+    service = normalize_model_name(service)
     if service not in SERVICES:
         return
 

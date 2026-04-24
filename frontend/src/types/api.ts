@@ -151,6 +151,7 @@ export interface VersionInfoResponse {
   version: string
   tag: string
   commit: string
+  default_admin_key_active: boolean
 }
 
 export interface VersionCheckResponse extends VersionInfoResponse {

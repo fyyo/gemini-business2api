@@ -15,10 +15,12 @@ from fastapi.responses import StreamingResponse
 
 from app.services.chat_media_service import ChatMediaFollowupDeps, execute_generated_media_followups
 
+from core.model_aliases import normalize_model_name, VIRTUAL_MODEL_IDS
+
 
 def build_openai_model_ids(
     model_mapping: dict[str, Any],
-    extra_model_ids: tuple[str, ...] = ("gemini-imagen", "gemini-veo"),
+    extra_model_ids: tuple[str, ...] = VIRTUAL_MODEL_IDS,
 ) -> list[str]:
     return [*model_mapping.keys(), *extra_model_ids]
 
@@ -36,10 +38,11 @@ def build_model_not_found_error(
     model_mapping: dict[str, Any],
     virtual_models: dict[str, Any],
 ) -> HTTPException | None:
-    if model in model_mapping or model in virtual_models:
+    canonical_model = normalize_model_name(model)
+    if model in model_mapping or canonical_model in model_mapping or model in virtual_models or canonical_model in virtual_models:
         return None
 
-    all_models = [*model_mapping.keys(), *virtual_models.keys()]
+    all_models = [*model_mapping.keys(), *VIRTUAL_MODEL_IDS]
     return HTTPException(
         status_code=404,
         detail=f"Model '{model}' not found. Available models: {all_models}",

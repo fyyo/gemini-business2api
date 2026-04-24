@@ -26,7 +26,9 @@ export const modelColors: Record<string, string> = {
   'gemini-2.5-flash': chartColors.warning,
   'gemini-3-flash-preview': chartColors.pink,
   'gemini-imagen': chartColors.emerald,
+  'gemini-3.1-flash-image': chartColors.emerald,
   'gemini-veo': chartColors.success,
+  'veo-3.1-lite-generate': chartColors.success,
   'gemini-auto': chartColors.slate,
 }
 
@@ -44,7 +46,9 @@ export const validModels = [
   'gemini-3-flash-preview',
   'gemini-3.1-pro-preview',
   'gemini-imagen',
+  'gemini-3.1-flash-image',
   'gemini-veo',
+  'veo-3.1-lite-generate',
 ]
 
 export function getModelColor(model: string): string {

@@ -502,7 +502,10 @@ const supportedModels = [
   'gemini-3-flash-preview',
   'gemini-3.1-pro-preview',
   'gemini-imagen',
+  'nano-banana-2',
+  'gemini-3.1-flash-image',
   'gemini-veo',
+  'veo-3.1-lite-generate',
 ]
 
 let hasScheduledRoutePrefetch = false

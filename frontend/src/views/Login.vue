@@ -7,10 +7,14 @@
           <p class="mt-2 text-sm text-muted-foreground">管理员登录</p>
         </div>
 
-        <form @submit.prevent="handleLogin" class="mt-8 space-y-6">
+        <form class="mt-8 space-y-6" @submit.prevent="handleLogin">
+          <div v-if="defaultAdminKeyActive" class="rounded-2xl bg-amber-500/10 px-4 py-3 text-sm text-amber-700">
+            未设置 <code>ADMIN_KEY</code>，当前默认密码：123456
+          </div>
+
           <div class="space-y-2">
             <label for="password" class="ui-field-label text-sm font-medium text-foreground">
-              管理员密钥
+              管理员密码
             </label>
             <Input
               id="password"
@@ -18,7 +22,7 @@
               type="password"
               size="md"
               block
-              placeholder="请输入管理员密钥"
+              placeholder="请输入管理员密码"
               :disabled="isLoading"
             />
           </div>
@@ -64,8 +68,9 @@
 
 <script setup lang="ts">
 import { Button, Input } from 'nanocat-ui'
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { versionApi } from '@/api/version'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
@@ -74,6 +79,16 @@ const authStore = useAuthStore()
 const password = ref('')
 const errorMessage = ref('')
 const isLoading = ref(false)
+const defaultAdminKeyActive = ref(false)
+
+async function loadVersionInfo() {
+  try {
+    const versionInfo = await versionApi.current()
+    defaultAdminKeyActive.value = Boolean(versionInfo.default_admin_key_active)
+  } catch {
+    defaultAdminKeyActive.value = false
+  }
+}
 
 async function handleLogin() {
   if (!password.value) return
@@ -85,9 +100,13 @@ async function handleLogin() {
     await authStore.login(password.value)
     router.push({ name: 'dashboard' })
   } catch (error: any) {
-    errorMessage.value = error.message || '登录失败，请检查密钥。'
+    errorMessage.value = error.message || '登录失败，请检查密码。'
   } finally {
     isLoading.value = false
   }
 }
+
+onMounted(() => {
+  void loadVersionInfo()
+})
 </script>

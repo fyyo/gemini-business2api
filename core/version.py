@@ -51,13 +51,15 @@ def get_git_commit_short() -> str:
         return ""
 
 
-def get_version_info() -> Dict[str, str]:
+def get_version_info() -> Dict[str, object]:
     version = get_app_version()
     commit = get_git_commit_short()
+    default_admin_key_active = not str(os.getenv("ADMIN_KEY") or "").strip()
     return {
         "version": version,
         "tag": f"v{version}",
         "commit": commit,
+        "default_admin_key_active": default_admin_key_active,
     }
 
 

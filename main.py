@@ -78,6 +78,7 @@ from core.account import (
     bulk_delete_accounts as _bulk_delete_accounts
 )
 from core.proxy_utils import parse_proxy_setting
+from core.model_aliases import normalize_model_name, VIRTUAL_MODEL_IDS
 from core.version import get_update_status, get_version_info
 
 # 导入 Uptime 追踪器
@@ -293,7 +294,8 @@ logger.addHandler(memory_handler)
 # 所有配置通过 config_manager 访问，优先级：环境变量 > YAML > 默认值
 TIMEOUT_SECONDS = 300
 API_KEY = config.basic.api_key
-ADMIN_KEY = config.security.admin_key
+DEFAULT_ADMIN_KEY = "123456"
+ADMIN_KEY = config.security.admin_key or DEFAULT_ADMIN_KEY
 _proxy_chat, _no_proxy_chat = parse_proxy_setting(config.basic.proxy_for_chat)
 PROXY_FOR_CHAT = _proxy_chat
 _NO_PROXY = ",".join(filter(None, {_no_proxy_chat}))
@@ -314,10 +316,11 @@ IMAGE_GENERATION_ENABLED = config.image_generation.enabled
 IMAGE_GENERATION_MODELS = config.image_generation.supported_models
 
 def get_request_quota_type(model_name: str) -> str:
-    """根据模型名称返回本次请求的配额类型。"""
-    if model_name in MODEL_TO_QUOTA_TYPE:
-        return MODEL_TO_QUOTA_TYPE[model_name]
-    if IMAGE_GENERATION_ENABLED and model_name in IMAGE_GENERATION_MODELS:
+    """Return the quota bucket for the requested model."""
+    canonical_model = normalize_model_name(model_name)
+    if canonical_model in MODEL_TO_QUOTA_TYPE:
+        return MODEL_TO_QUOTA_TYPE[canonical_model]
+    if IMAGE_GENERATION_ENABLED and canonical_model in IMAGE_GENERATION_MODELS:
         return "images"
     return "text"
 
@@ -336,18 +339,19 @@ VIRTUAL_MODELS = {
 }
 
 def get_tools_spec(model_name: str) -> dict:
-    """根据模型名称返回工具配置"""
-    # 虚拟模型
-    if model_name in VIRTUAL_MODELS:
-        return VIRTUAL_MODELS[model_name]
+    """Return toolsSpec for the requested model."""
+    canonical_model = normalize_model_name(model_name)
+    # Virtual media models
+    if canonical_model in VIRTUAL_MODELS:
+        return VIRTUAL_MODELS[canonical_model]
     
-    # 普通模型
+    # Standard chat models
     tools_spec = {
         "webGroundingSpec": {},
         "toolRegistry": "default_tool_registry",
     }
     
-    if IMAGE_GENERATION_ENABLED and model_name in IMAGE_GENERATION_MODELS:
+    if IMAGE_GENERATION_ENABLED and canonical_model in IMAGE_GENERATION_MODELS:
         tools_spec["imageGenerationSpec"] = {}
     
     return tools_spec
@@ -456,11 +460,9 @@ multi_account_mgr = load_multi_account_config(
 
 # Legacy register/login services were removed.
 
-# 验证必需的环境变量
-if not ADMIN_KEY:
-    logger.error("[SYSTEM] 未配置 ADMIN_KEY 环境变量，请设置后重启")
-    import sys
-    sys.exit(1)
+# Fallback admin password when ADMIN_KEY is not configured
+if not config.security.admin_key:
+    logger.warning("[SYSTEM] ADMIN_KEY not set, fallback to default password 123456")
 
 # 启动日志
 logger.info("[SYSTEM] API端点: /v1/chat/completions")
@@ -764,7 +766,7 @@ def _set_global_stats(stats: dict[str, Any]) -> None:
 
 
 def _get_openai_model_ids() -> list[str]:
-    return build_openai_model_ids(MODEL_MAPPING)
+    return build_openai_model_ids(MODEL_MAPPING, VIRTUAL_MODEL_IDS)
 
 
 def _get_runtime_settings_state() -> dict[str, Any]:
